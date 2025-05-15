@@ -42,6 +42,8 @@ _In a Fat Model approach, business logic such as generating an API key should re
        * @return void
        */
 
+      protected $fillable = ['name', 'email', 'password', 'api_key'];
+
       public function generateApiKey()
         {
           // Example format: API-<random 10-character string>
@@ -85,14 +87,26 @@ _In the Skinny Controller pattern, the controller acts only as a mediator betwee
        * Create a new API key for the given user.
        */
 
-      public function createApiKey($userId)
+      public function createApiKey(Request $request)
         {
-            $user = User::findOrFail($userId);
+            $validator = Validator::make($request->all(), [
+            'name'     => 'required|string|max:255',
+            'email'    => 'required|email|unique:users,email',
+            'password' => 'required|min:6',
+            ]);
+
+            $data = $request->only(['name', 'email', 'password']);
+            $data['name'] = trim($data['name']);
+            $data['email'] = trim($data['email']);
+            $data['password'] = Hash::make($data['password']); 
+
+            $user = User::create($data);
+
             $user->generateApiKey(); // Delegates logic to the model
 
             return response()->json([
-              'message' => 'API key generated successfully.',
-              'api_key' => $user->api_key,
+              'message' => 'User created successfully.',
+              'user' => $user,
             ]);
         }
     }
