@@ -297,4 +297,4 @@ Route::get('/projects', [ProjectController::class, 'index'])
     ->name('projects.index');
 ```
 
->Now you can use `projects.index` as a reference throughout your app. .
+>Now you can use `projects.index` as a reference throughout your app.
