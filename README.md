@@ -292,6 +292,8 @@ While using `Named routes` allow you to assign a short, readable alias to any ro
 
 ```php
 Route::get('/projects', [ProjectController::class, 'index'])
+  
+
     ->name('projects.index');
 ```
 
