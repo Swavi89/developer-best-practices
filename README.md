@@ -296,3 +296,84 @@ Route::get('/projects', [ProjectController::class, 'index'])
 ```
 
 >Now you can use `projects.index` as a reference throughout your app.
+
+### 6. Preferences: Flexible Key-Value Store
+
+> Sometimes you need a simple place to stash feature flags, UI settings, or company meta-data without adding dozens of columns to an existing table.
+
+>This feature allows storing key-value preferences in a separate table and accessing them conveniently using a model with getter and setter functions.
+
+**🔧 Step 1: Migration**
+
+_Create a preferences table with key and value columns:_
+
+```
+php artisan make:migration create_preferences_table
+```
+
+_Setup that migration file & Run artisan command to migrate the table:_
+```php
+Schema::create('preferences', function (Blueprint $table) {
+    $table->id();
+    $table->string('key')->unique();
+    $table->text('value')->nullable();
+    $table->timestamps();
+});
+```
+
+**🧠 Step 2: Model**
+
+_Create the Preference model:_
+
+```php
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Preference extends Model
+{
+    protected $fillable = ['key', 'value'];
+
+    public static function get($key, $default = null)
+    {
+        return optional(static::where('key', $key)->first())->value ?? $default;
+    }
+
+    // Retrieves a preference value by its key
+    // Uses optional() helper to avoid null reference errors
+    // Uses null coalescing (??) to return the default value if the preference doesn't exist
+
+    public static function set($key, $value)
+    {
+        return static::updateOrCreate(['key' => $key], ['value' => $value]);
+    }
+
+     // Creates or updates a preference
+     // Uses Eloquent's updateOrCreate method, which:
+       // * Updates the record if the key exists
+       // * Creates a new record if the key doesn't exist
+}
+```
+
+**🧪 Step 3: Usage Example**
+```php
+// Set a preference
+Preference::set('site_name', 'My Awesome Site');
+
+// Get a preference
+$name = Preference::get('site_name');
+```
+
+**Purpose & Usage**
+
+_This model provides an elegant way to store `application settings` or `user preferences` in the database. Instead of creating separate database tables for different types of settings, you can use this single model to store various configuration values as `key-value` pairs._
+
+***Common use cases include:***
+- Application settings (site name, contact email, etc.)
+- User preferences
+- Feature flags
+- Dynamic configuration values
+
+### 7. Telegram Notification Integration
+
+>
