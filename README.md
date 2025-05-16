@@ -292,6 +292,11 @@ While using `Named routes` allow you to assign a short, readable alias to any ro
 
 ```php
 Route::get('/projects', [ProjectController::class, 'index'])
+
+### 6. Preferences: Flexible Key-Value Store
+
+> Sometimes you need a simple place to stash feature flags, UI settings, or company meta-data without adding dozens of columns to an existing table.  
+
     ->name('projects.index');
 ```
 
