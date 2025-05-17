@@ -497,3 +497,4 @@ $response = Http::post('/api/send-telegram', [
 - Daily/weekly reports
 - User activity notifications
 
+---
