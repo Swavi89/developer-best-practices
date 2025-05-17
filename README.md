@@ -299,6 +299,8 @@ Route::get('/projects', [ProjectController::class, 'index'])
 
 >Now you can use `projects.index` as a reference throughout your app.
 
+---
+
 ### 6. Preferences: Flexible Key-Value Store
 
 > Sometimes you need a simple place to stash feature flags, UI settings, or company meta-data without adding dozens of columns to an existing table.
@@ -375,6 +377,8 @@ _This model provides an elegant way to store `application settings` or `user pre
 - User preferences
 - Feature flags
 - Dynamic configuration values
+
+---
 
 ### 7. Telegram Notification Integration
 
@@ -493,4 +497,3 @@ $response = Http::post('/api/send-telegram', [
 - Daily/weekly reports
 - User activity notifications
 
----
