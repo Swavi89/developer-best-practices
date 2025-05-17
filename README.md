@@ -166,7 +166,7 @@ use Illuminate\Support\Facades\Auth;
 class ProjectController extends Controller
 {
     /**
-     * List the current user’s projects.
+     * List the current user's projects.
      */
     public function index()
     {
@@ -180,15 +180,15 @@ class ProjectController extends Controller
 
 **🧠 How This Helps:**
 
-* __Security__: This ensures you're not accessing someone else’s project by mistake.
-* __Clarity__: It’s obvious you're only pulling projects that belong to the logged-in user.
+* __Security__: This ensures you're not accessing someone else's project by mistake.
+* __Clarity__: It's obvious you're only pulling projects that belong to the logged-in user.
 * __Reusability__: The relationship is defined once in the model and used throughout your code.
 
 ---
 
 ### 4. Prefer firstOrFail()
 
-When querying the database in Laravel, it’s common to retrieve a single record using Eloquent. While `first()` returns `null` if no result is found, it's **better to use `firstOrFail()`** when the record is required — especially for detail views, editing, or protected resources.
+When querying the database in Laravel, it's common to retrieve a single record using Eloquent. While `first()` returns `null` if no result is found, it's **better to use `firstOrFail()`** when the record is required — especially for detail views, editing, or protected resources.
 
 Using `firstOrFail()` makes your code more **secure**, **robust**, and **expressive** by:
 
@@ -228,7 +228,7 @@ class ProjectController extends Controller
 
 ### 5. Laravel Naming Conventions
 
-> Following Laravel’s standard naming conventions makes your application predictable, readable, and easy to navigate for all team members.
+> Following Laravel's standard naming conventions makes your application predictable, readable, and easy to navigate for all team members.
 
 ***🏗️ Models***
 
@@ -378,4 +378,119 @@ _This model provides an elegant way to store `application settings` or `user pre
 
 ### 7. Telegram Notification Integration
 
->
+> A simple way to integrate Telegram notifications into your Laravel application using just routes, model, and controller.
+
+**🔧 Step 1: Setup**
+
+_First, create a Telegram bot and get your bot token:_
+
+1. Message [@BotFather](https://t.me/botfather) on Telegram
+2. Use `/newbot` command to create a new bot
+3. Follow instructions and save your bot token
+
+**📦 Step 2: Create Model & Migration**
+
+```bash
+php artisan make:model TelegramNotification -m
+```
+
+_Update the migration file:_
+
+```php
+public function up()
+{
+    Schema::create('telegram_notifications', function (Blueprint $table) {
+        $table->id();
+        $table->string('chat_id');
+        $table->text('message');
+        $table->boolean('is_sent')->default(false);
+        $table->timestamps();
+    });
+}
+```
+
+**📝 Step 3: Create Controller**
+
+```bash
+php artisan make:controller TelegramNotificationController
+```
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\TelegramNotification;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+
+class TelegramNotificationController extends Controller
+{
+    protected $botToken;
+
+    public function __construct()
+    {
+        $this->botToken = config('services.telegram.bot_token');
+    }
+
+    public function send(Request $request)
+    {
+        $request->validate([
+            'message' => 'required|string',
+            'chat_id' => 'required|string'
+        ]);
+
+        $notification = TelegramNotification::create([
+            'chat_id' => $request->chat_id,
+            'message' => $request->message
+        ]);
+
+        $response = Http::post("https://api.telegram.org/bot{$this->botToken}/sendMessage", [
+            'chat_id' => $request->chat_id,
+            'text' => $request->message,
+            'parse_mode' => 'HTML'
+        ]);
+
+        if ($response->successful()) {
+            $notification->update(['is_sent' => true]);
+            return response()->json(['message' => 'Notification sent successfully']);
+        }
+
+        return response()->json(['message' => 'Failed to send notification'], 500);
+    }
+}
+```
+
+**🔐 Step 4: Add Route**
+
+```php
+// routes/api.php
+Route::post('/send-telegram', [TelegramNotificationController::class, 'send']);
+```
+
+**🧪 Step 5: Usage Example**
+
+```php
+// In your .env file
+TELEGRAM_BOT_TOKEN=your_bot_token_here
+
+// In your config/services.php
+'telegram' => [
+    'bot_token' => env('TELEGRAM_BOT_TOKEN'),
+],
+
+// Sending a notification
+$response = Http::post('/api/send-telegram', [
+    'chat_id' => 'your_chat_id',
+    'message' => "🛍 New Order Received!\nOrder ID: #123\nAmount: $99.99"
+]);
+```
+
+**💡 Common Use Cases:**
+- Order notifications
+- System alerts
+- Error reporting
+- Daily/weekly reports
+- User activity notifications
+
+---
