@@ -303,9 +303,7 @@ Route::get('/projects', [ProjectController::class, 'index'])
 
 ### 6. Preferences: Flexible Key-Value Store
 
-> Sometimes you need a simple place to stash feature flags, UI settings, or company meta-data without adding dozens of columns to an existing table.
-
->This feature allows storing key-value preferences in a separate table and accessing them conveniently using a model with getter and setter functions.
+>This approach lets you store settings and preferences (like key-value pairs) in a dedicated database table. You can easily save and retrieve these settings using simple get and set methods in your code.
 
 **🔧 Step 1: Migration**
 
@@ -320,7 +318,7 @@ _Setup that migration file & Run artisan command to migrate the table:_
 Schema::create('preferences', function (Blueprint $table) {
     $table->id();
     $table->string('key')->unique();
-    $table->text('value')->nullable();
+    $table->longText('value')->nullable();
     $table->timestamps();
 });
 ```
@@ -336,26 +334,15 @@ use Illuminate\Database\Eloquent\Model;
 
 class Preference extends Model
 {
-    protected $fillable = ['key', 'value'];
-
     public static function get($key, $default = null)
     {
-        return optional(static::where('key', $key)->first())->value ?? $default;
+        // Retrieves a preference value by its key
     }
-
-    // Retrieves a preference value by its key
-    // Uses optional() helper to avoid null reference errors
-    // Uses null coalescing (??) to return the default value if the preference doesn't exist
 
     public static function set($key, $value)
     {
-        return static::updateOrCreate(['key' => $key], ['value' => $value]);
+        // Set the key value pairs accordingly
     }
-
-     // Creates or updates a preference
-     // Uses Eloquent's updateOrCreate method, which:
-       // * Updates the record if the key exists
-       // * Creates a new record if the key doesn't exist
 }
 ```
 
@@ -368,21 +355,24 @@ Preference::set('site_name', 'My Awesome Site');
 $name = Preference::get('site_name');
 ```
 
-**Purpose & Usage**
+**Usage**
 
-_This model provides an elegant way to store `application settings` or `user preferences` in the database. Instead of creating separate database tables for different types of settings, you can use this single model to store various configuration values as `key-value` pairs._
+_Let's say you have a currency conversion module where you need to store exchange rates (like USD to INR). Instead of creating a new table for each currency pair, you can use this model to store them as key-value pairs. For example:_
 
-***Common use cases include:***
-- Application settings (site name, contact email, etc.)
-- User preferences
-- Feature flags
-- Dynamic configuration values
+```php
+// Store exchange rates
+Preference::set('usd_to_inr', '83.25');
+Preference::set('eur_to_inr', '90.15');
 
----
+// Retrieve when needed
+$usdRate = Preference::get('usd_to_inr'); // Returns 83.25
+```
+
+_This way, you can easily update and access these rates from anywhere in your application without creating multiple database tables._
 
 ### 7. Telegram Notification Integration
 
-> A simple way to integrate Telegram notifications into your Laravel application using just routes, model, and controller.
+> A simple way to send automated notifications to your Telegram channel or chat using your own bot. This is useful for sending alerts, updates, or form submissions directly to your Telegram.
 
 **🔧 Step 1: Setup**
 
@@ -390,110 +380,92 @@ _First, create a Telegram bot and get your bot token:_
 
 1. Message [@BotFather](https://t.me/botfather) on Telegram
 2. Use `/newbot` command to create a new bot
-3. Follow instructions and save your bot token
-
-**📦 Step 2: Create Model & Migration**
-
-```bash
-php artisan make:model TelegramNotification -m
+3. Save your bot token in `.env` file:
+```
+TELEGRAM_BOT_TOKEN=your_bot_token_here
 ```
 
-_Update the migration file:_
+**📝 Step 2: Create Model with Notification Methods**
 
 ```php
-public function up()
+class TelegramNotification extends Model
 {
-    Schema::create('telegram_notifications', function (Blueprint $table) {
-        $table->id();
-        $table->string('chat_id');
-        $table->text('message');
-        $table->boolean('is_sent')->default(false);
-        $table->timestamps();
-    });
-}
-```
-
-**📝 Step 3: Create Controller**
-
-```bash
-php artisan make:controller TelegramNotificationController
-```
-
-```php
-<?php
-
-namespace App\Http\Controllers;
-
-use App\Models\TelegramNotification;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
-
-class TelegramNotificationController extends Controller
-{
-    protected $botToken;
+    protected $bot_token;
+    protected $forms_chat_id = '8111321280'; // Your channel/chat ID
 
     public function __construct()
     {
-        $this->botToken = config('services.telegram.bot_token');
+        $this->bot_token = env('TELEGRAM_BOT_TOKEN');
     }
 
-    public function send(Request $request)
+    // Basic method to send any message
+    public function sendMessage($message, $chat_id)
     {
-        $request->validate([
-            'message' => 'required|string',
-            'chat_id' => 'required|string'
-        ]);
+        $url = 'https://api.telegram.org/bot' . $this->bot_token . '/sendMessage';
+        $data = [
+            'chat_id' => $chat_id,
+            'text' => $message,
+            'parse_mode' => 'markdown',
+        ];
 
-        $notification = TelegramNotification::create([
-            'chat_id' => $request->chat_id,
-            'message' => $request->message
-        ]);
+        // Send the message using cURL
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_POST, 1);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        $result = curl_exec($ch);
+        curl_close($ch);
+    }
 
-        $response = Http::post("https://api.telegram.org/bot{$this->botToken}/sendMessage", [
-            'chat_id' => $request->chat_id,
-            'text' => $request->message,
-            'parse_mode' => 'HTML'
-        ]);
+    // Example: Send notification for new demo requests
+    public static function notifyNewDemoRequest($name, $email, $phone, $country)
+    {
+        $message = "📝 *New Demo Request*\n";
+        $message .= "Name: $name\n";
+        $message .= "Email: $email\n";
+        $message .= "Phone: $phone\n";
+        $message .= "Country: $country";
 
-        if ($response->successful()) {
-            $notification->update(['is_sent' => true]);
-            return response()->json(['message' => 'Notification sent successfully']);
-        }
-
-        return response()->json(['message' => 'Failed to send notification'], 500);
+        $notification = new TelegramNotification();
+        $notification->sendMessage($message, $notification->forms_chat_id);
     }
 }
 ```
 
-**🔐 Step 4: Add Route**
+**🧪 Step 3: Usage Example**
+
+
+_Imagine you have a contact form on your website. When someone fills out this form, you want to get instant notifications on your Telegram. Here's how it works:_
 
 ```php
-// routes/api.php
-Route::post('/send-telegram', [TelegramNotificationController::class, 'send']);
+// When someone submits a demo request form
+TelegramNotification::notifyNewDemoRequest(
+    'John Doe',
+    'john@example.com',
+    '+1234567890',
+    'United States'
+);
 ```
 
-**🧪 Step 5: Usage Example**
+_As soon as this code runs, you'll receive a beautifully formatted message in your Telegram channel like this:_
 
-```php
-// In your .env file
-TELEGRAM_BOT_TOKEN=your_bot_token_here
-
-// In your config/services.php
-'telegram' => [
-    'bot_token' => env('TELEGRAM_BOT_TOKEN'),
-],
-
-// Sending a notification
-$response = Http::post('/api/send-telegram', [
-    'chat_id' => 'your_chat_id',
-    'message' => "🛍 New Order Received!\nOrder ID: #123\nAmount: $99.99"
-]);
 ```
+📝 New Demo Request
+Name: John Doe
+Email: john@example.com
+Phone: +1234567890
+Country: United States
+```
+
+_This way, you never miss any important inquiries from your website visitors!_
 
 **💡 Common Use Cases:**
-- Order notifications
-- System alerts
-- Error reporting
-- Daily/weekly reports
-- User activity notifications
+- Form submission notifications
+- Error alerts
+- Daily reports
+- User activity updates
+- System status notifications
+
+_This approach lets you easily send formatted messages to your Telegram channel or chat whenever something important happens in your application. The messages can include text, emojis, and markdown formatting for better readability._
 
